@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<meta charset=utf-8>
+<meta name=viewport content="width=device-width, initial-scale=1">
+<title>process-css-rules tests</title>
+
+<style>
+  a { --b: c; }
+  b { --c: d; }
+  @media (min-width: 50px) {
+    a { --b: c; }
+    b { --c: d; }}
+  }
+</style>
+
+<h1>process-css-rules tests</h1>
+<h2 id=pass>Tests passed:</h2>
+<ul></ul>
+<h2 id=fail>Tests failed:</h2>
+<ul></ul>
+
+<script type=module>
+  import processRules from './index.js'
+
+  const tests = [
+
+    // Input testing
+    {
+      name: 'Return undefined if no stylesheet supplied',
+      input: () => processRules('hello', rule => rule),
+      expected: undefined
+    },
+    {
+      name: 'Return undefined if no callback function supplied',
+      input: () => processRules(document.styleSheets[0]),
+      expected: undefined
+    },
+    {
+      name: 'Three top-level rules found in test stylesheet',
+      input: () => processRules(document.styleSheets[0], rule => rule).cssRules.length,
+      expected: 3
+    },
+    {
+      name: 'Five total rules found in test stylesheet',
+      input: () => {
+        let found = 0
+        processRules(document.styleSheets[0], rule => found++)
+        return found
+      },
+      expected: 5
+    },
+    {
+      name: 'One media quert found in test stylesheet',
+      input: () => {
+        let found = 0
+        processRules(document.styleSheets[0], rule => 
+          rule.constructor.name === 'CSSMediaRule' && found++
+        )
+        return found
+      },
+      expected: 1
+    },
+    {
+      name: 'Four css style rules found in test stylesheet',
+      input: () => {
+        let found = 0
+        processRules(document.styleSheets[0], rule => 
+          rule.constructor.name === 'CSSStyleRule' && found++
+        )
+        return found
+      },
+      expected: 4
+    },
+    {
+      name: 'Custom property named "--c" found in a rule in the test stylesheet',
+      input: () => {
+        let found = false
+        processRules(document.styleSheets[0], rule => {
+          if (rule.style !== undefined && Array.from(rule.style).includes('--c')) {
+            return found = true
+          }
+        })
+        return found
+      },
+      expected: true
+    },
+
+    // Output testing
+    {
+      name: 'Return CSSStyleSheet object if proper arguments supplied',
+      input: () => processRules(document.styleSheets[0], rule => rule).constructor.name,
+      expected: 'CSSStyleSheet'
+    },
+    {
+      name: 'First selector matches "css-test a" after prefixing all selectors',
+      input: () => processRules(document.styleSheets[0], rule => {
+        if (rule.constructor.name === 'CSSStyleRule') {
+          rule.selectorText = 'css-test ' + rule.selectorText
+        }
+      })
+        .cssRules[0]
+        .selectorText,
+      expected: 'css-test a'
+    },
+    {
+      name: 'Changed rules include new property',
+      input: () => processRules(document.styleSheets[0], rule => {
+        if (rule.constructor.name === 'CSSStyleRule') {
+          rule.style.setProperty('color', 'papayawhip')
+        }
+      })
+        .cssRules[0]
+        .cssText
+        .replace(/ /g, ''),
+      expected: 'css-test a { --b: c; color: papayawhip; }'.replace(/ /g, '')
+    },
+
+  ]
+  const results = tests.reduce((acc, test) => {
+      test.result = test.input()
+      test.result === test.expected
+        ? acc.pass.push(test)
+        : acc.fail.push(test)
+      return acc
+    },
+    {pass: [], fail: []}
+  )
+
+  const passed = results.pass.length
+  const failed = results.fail.length
+  const total = passed + failed
+
+  // populate results to page
+  document.querySelector('#pass').textContent = `Tests passed ${passed}/${total}:`
+  document.querySelector('#fail').textContent = `Tests failed ${failed}/${total}:`
+
+  results.pass.forEach(test => {
+    const tag = document.createElement('li')
+    tag.innerHTML = `
+      <details>
+        <summary>${test.name}</summary>
+        <h3>Test</h3>
+        <p><pre>${test.input.toString()}</pre></p>
+        <h3>Expected</h3>
+        <p><code>${test.expected}</code></p>
+        <h3>Result</h3>
+        <p><code>${test.result}</code></p>
+      </details>
+    `
+    return document.querySelector('#pass + ul').appendChild(tag)
+  })
+
+  results.fail.forEach(test => {
+    const tag = document.createElement('li')
+    tag.innerHTML = `
+      <details>
+        <summary style=text-decoration:line-through>${test.name}</summary>
+        <h3>Test</h3>
+        <p><code>${test.input.toString().slice(6)}</code></p>
+        <h3>Expected</h3>
+        <p><code>${test.expected}</code></p>
+        <h3>Result</h3>
+        <p><code>${test.result}</code></p>
+      </details>
+    `
+    return document.querySelector('#fail + ul').appendChild(tag)
+  })
+
+  // Log text of all rules found in CSSOM to the console
+Array.from(document.styleSheets).forEach(stylesheet =>
+  processRules(stylesheet, rule => console.log(rule.cssText))
+)
+</script>
