@@ -20,7 +20,8 @@
     "callback",
     "function",
     "preprocessor",
-    "reprocessor"
+    "reprocessor",
+    "caffeinated-style-sheets"
   ],
   "author": "Tommy Hodgins",
   "license": "MIT",
